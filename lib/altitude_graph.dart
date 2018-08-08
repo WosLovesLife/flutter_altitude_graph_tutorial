@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 
 const Color kLabelTextColor = Colors.white;
 const Color kAxisTextColor = Colors.black;
@@ -219,11 +220,23 @@ class AltitudePainter extends CustomPainter {
     // 30 是给上下留出的距离, 这样竖轴的最顶端的字就不会被截断, 下方可以用来显示横轴的字
     Size availableSize = Size(size.width, size.height - 30);
 
+    // 50 是给左右留出间距, 避免标签上的文字被截断, 同时避免线图覆盖竖轴的字
+    Size pathSize = Size(availableSize.width - 50, availableSize.height);
+
     // 向下滚动15的距离给顶部留出空间
     canvas.translate(0.0, 15.0);
 
     // 绘制竖轴
     _drawVerticalAxis(canvas, availableSize);
+
+    // 绘制线图
+    canvas.save();
+    // 剪裁绘制的窗口, 节省绘制的开销. -24 是为了避免覆盖纵轴
+    canvas.clipRect(Rect.fromPoints(Offset.zero, Offset(size.width - 24, size.height)));
+    // _offset.dx通常都是向左偏移的量 +15 是为了避免关键点 Label 的文字被截断
+    canvas.translate(15.0, 0.0);
+    _drawLines(canvas, pathSize);
+    canvas.restore();
   }
 
   /// =========== 绘制纵轴部分
@@ -285,6 +298,43 @@ class AltitudePainter extends CustomPainter {
           fontSize: 8.0,
         ),
       );
+  }
+
+  /// 绘制海拔图连线部分
+  void _drawLines(Canvas canvas, Size size) {
+    var pointList = _altitudePointList;
+    if (pointList == null || pointList.isEmpty) return;
+
+    double ratioX = size.width / pointList.last.point.dx;
+    double ratioY = size.height / (_maxVerticalAxisValue - _minVerticalAxisValue);
+
+    var path = Path();
+
+    var calculateDy = (double dy) {
+      return size.height - (dy - _minVerticalAxisValue) * ratioY;
+    };
+
+    var firstPoint = pointList.first.point;
+    path.moveTo(firstPoint.dx * ratioX, calculateDy(firstPoint.dy));
+    for (var p in pointList) {
+      path.lineTo(p.point.dx * ratioX, calculateDy(p.point.dy));
+    }
+
+    // 绘制线条下面的渐变部分
+    double gradientTop = size.height - ratioY * (_maxAltitude - _minVerticalAxisValue);
+    _gradualPaint.shader = ui.Gradient.linear(Offset(0.0, gradientTop), Offset(0.0, size.height), gradientColors);
+    _drawGradualShadow(path, size, canvas);
+
+    // 先绘制渐变再绘制线,避免线被遮挡住
+    canvas.drawPath(path, _linePaint);
+  }
+
+  void _drawGradualShadow(Path path, Size size, Canvas canvas) {
+    var gradualPath = Path.from(path);
+    gradualPath.lineTo(gradualPath.getBounds().width, size.height);
+    gradualPath.relativeLineTo(-gradualPath.getBounds().width, 0.0);
+
+    canvas.drawPath(gradualPath, _gradualPaint);
   }
 
   @override
