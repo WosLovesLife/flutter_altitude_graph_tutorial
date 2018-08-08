@@ -215,7 +215,77 @@ class AltitudePainter extends CustomPainter {
           ..style = PaintingStyle.stroke;
 
   @override
-  void paint(Canvas canvas, Size size) {}
+  void paint(Canvas canvas, Size size) {
+    // 30 是给上下留出的距离, 这样竖轴的最顶端的字就不会被截断, 下方可以用来显示横轴的字
+    Size availableSize = Size(size.width, size.height - 30);
+
+    // 向下滚动15的距离给顶部留出空间
+    canvas.translate(0.0, 15.0);
+
+    // 绘制竖轴
+    _drawVerticalAxis(canvas, availableSize);
+  }
+
+  /// =========== 绘制纵轴部分
+
+  /// 绘制背景数轴
+  /// 根据最大高度和间隔值计算出需要把纵轴分成几段
+  void _drawVerticalAxis(Canvas canvas, Size size) {
+    var nodeCount = (_maxVerticalAxisValue - _minVerticalAxisValue) / _verticalAxisInterval;
+
+    var interval = size.height / nodeCount;
+
+    canvas.save();
+    for (int i = 0; i <= nodeCount; i++) {
+      var label = (_maxVerticalAxisValue - (_verticalAxisInterval * i)).toInt();
+      _drawVerticalAxisLine(canvas, size, label.toString(), i * interval);
+    }
+    canvas.restore();
+  }
+
+  /// 绘制数轴的一行
+  void _drawVerticalAxisLine(Canvas canvas, Size size, String text, double height) {
+    var tp = _newVerticalAxisTextPainter(text)..layout();
+
+    // 绘制虚线
+    // 虚线的宽度 = 可用宽度 - 文字宽度 - 文字宽度的左右边距
+    var dottedLineWidth = size.width - 25.0;
+    canvas.drawPath(_newDottedLine(dottedLineWidth, height, 2.0, 2.0), _levelLinePaint);
+
+    // 绘制虚线右边的Text
+    // Text的绘制起始点 = 可用宽度 - 文字宽度 - 左边距
+    var textLeft = size.width - tp.width - 3;
+    tp.paint(canvas, Offset(textLeft, height - tp.height / 2));
+  }
+
+  /// 生成虚线的Path
+  Path _newDottedLine(double width, double y, double cutWidth, double interval) {
+    var path = Path();
+    var d = width / (cutWidth + interval);
+    path.moveTo(0.0, y);
+    for (int i = 0; i < d; i++) {
+      path.relativeLineTo(cutWidth, 0.0);
+      path.relativeMoveTo(interval, 0.0);
+    }
+    return path;
+  }
+
+  TextPainter textPainter = TextPainter(
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+  );
+
+  /// 生成纵轴文字的TextPainter
+  TextPainter _newVerticalAxisTextPainter(String text) {
+    return textPainter
+      ..text = TextSpan(
+        text: text,
+        style: TextStyle(
+          color: axisTextColor,
+          fontSize: 8.0,
+        ),
+      );
+  }
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) {
