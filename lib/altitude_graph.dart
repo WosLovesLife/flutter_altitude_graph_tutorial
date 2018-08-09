@@ -223,6 +223,9 @@ class AltitudePainter extends CustomPainter {
     // 50 是给左右留出间距, 避免标签上的文字被截断, 同时避免线图覆盖竖轴的字
     Size pathSize = Size(availableSize.width - 50, availableSize.height);
 
+    // 高度 +2 是为了将横轴文字置于底部并加一个 marginTop.
+    double hAxisTransY = availableSize.height + 2;
+
     // 向下滚动15的距离给顶部留出空间
     canvas.translate(0.0, 15.0);
 
@@ -236,6 +239,15 @@ class AltitudePainter extends CustomPainter {
     // _offset.dx通常都是向左偏移的量 +15 是为了避免关键点 Label 的文字被截断
     canvas.translate(15.0, 0.0);
     _drawLines(canvas, pathSize);
+    canvas.restore();
+
+
+    canvas.save();
+    // 剪裁绘制窗口, 减少绘制时的开销.
+    canvas.clipRect(Rect.fromPoints(Offset(0.0, hAxisTransY), Offset(size.width, size.height)));
+    // x偏移和线图对应上, y偏移将绘制点挪到底部
+    canvas.translate(15.0, hAxisTransY);
+    _drawHorizontalAxis(canvas, availableSize.width, pathSize.width);
     canvas.restore();
   }
 
@@ -335,6 +347,40 @@ class AltitudePainter extends CustomPainter {
     gradualPath.relativeLineTo(-gradualPath.getBounds().width, 0.0);
 
     canvas.drawPath(gradualPath, _gradualPaint);
+  }
+
+  void _drawHorizontalAxis(Canvas canvas, double viewportWidth, double totalWidth) {
+    Offset lastPoint = _altitudePointList?.last?.point;
+    if (lastPoint == null) return;
+
+    double ratio = viewportWidth / totalWidth;
+    double intervalAtDistance = lastPoint.dx * ratio / 6.0;
+    int intervalAtHAxis;
+    if (intervalAtDistance >= 100.0) {
+      intervalAtHAxis = (intervalAtDistance / 100.0).ceil() * 100;
+    } else if (intervalAtDistance >= 10) {
+      intervalAtHAxis = (intervalAtDistance / 10.0).ceil() * 10;
+    } else {
+      intervalAtHAxis = (intervalAtDistance / 5.0).ceil() * 5;
+    }
+    double hAxisIntervalScale = intervalAtHAxis.toDouble() / intervalAtDistance;
+    double intervalAtScreen = viewportWidth / 6.0 * hAxisIntervalScale;
+
+    double count = totalWidth / intervalAtScreen;
+    for (int i = 0; i <= count; i++) {
+      _drawHorizontalAxisLine(
+        canvas,
+        "${i * intervalAtHAxis}",
+        i * intervalAtScreen,
+      );
+    }
+  }
+
+  /// 绘制数轴的一行
+  void _drawHorizontalAxisLine(Canvas canvas, String text, double width) {
+    var tp = _newVerticalAxisTextPainter(text)..layout();
+    var textLeft = width - tp.width / 2;
+    tp.paint(canvas, Offset(textLeft, 0.0));
   }
 
   @override
