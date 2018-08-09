@@ -339,6 +339,8 @@ class AltitudePainter extends CustomPainter {
 
     // 先绘制渐变再绘制线,避免线被遮挡住
     canvas.drawPath(path, _linePaint);
+
+    _drawLabel(canvas, size.height, pointList, ratioX, ratioY);
   }
 
   void _drawGradualShadow(Path path, Size size, Canvas canvas) {
@@ -347,6 +349,52 @@ class AltitudePainter extends CustomPainter {
     gradualPath.relativeLineTo(-gradualPath.getBounds().width, 0.0);
 
     canvas.drawPath(gradualPath, _gradualPaint);
+  }
+
+  void _drawLabel(Canvas canvas, double height, List<AltitudePoint> pointList, double ratioX, double ratioY) {
+    // 绘制关键点及文字
+    canvas.save();
+    canvas.translate(0.0, height);
+    for (var p in pointList) {
+      if (p.name == null || p.name.isEmpty) continue;
+
+      // 将海拔的值换算成在屏幕上的值
+      double yInScreen = (p.point.dy - _minVerticalAxisValue) * ratioY;
+
+      // ==== 绘制关键点
+      _signPointPaint.color = p.color;
+      canvas.drawCircle(Offset(p.point.dx * ratioX, -yInScreen), 2.0, _signPointPaint);
+
+      // ==== 绘制文字及背景
+      var tp = p.textPainter;
+      var left = p.point.dx * ratioX - tp.width / 2;
+
+      // 如果label接近顶端, 调换方向, 避免label看不见
+      double bgTop = yInScreen + tp.height + 8;
+      double bgBottom = yInScreen + 4;
+      double textTop = yInScreen + tp.height + 6;
+      if (height - bgTop < 0) {
+        bgTop = yInScreen - tp.height - 8;
+        bgBottom = yInScreen - 4;
+        textTop = yInScreen - 6;
+      }
+      // 绘制文字的背景框
+      canvas.drawRRect(
+          RRect.fromLTRBXY(
+            left - 2,
+            -bgTop,
+            left + tp.width + 2,
+            -bgBottom,
+            tp.width / 2.0,
+            tp.width / 2.0,
+          ),
+          _signPointPaint);
+
+      // 绘制文字
+      tp.paint(canvas, Offset(left, -textTop));
+    }
+
+    canvas.restore();
   }
 
   void _drawHorizontalAxis(Canvas canvas, double viewportWidth, double totalWidth) {

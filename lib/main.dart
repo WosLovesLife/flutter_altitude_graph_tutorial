@@ -30,7 +30,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _loadData() {
-    parseGeographyData('assets/raw/HUANQINGHAIHU.json').then((list) {
+    parseGeographyData('assets/raw/CHUANZANGNAN.json').then((list) {
       setState(() {
         _altitudePointList = list;
       });
